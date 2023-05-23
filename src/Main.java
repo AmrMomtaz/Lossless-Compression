@@ -1,3 +1,4 @@
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.security.DigestInputStream;
@@ -15,6 +16,9 @@ public class Main {
 
         System.out.println(compareFiles("ch05-naming.pdf",
                 "decompressed_ch05-naming.pdf"));
+
+        new File("ch05-naming.pdf.AE").delete();
+        new File("decompressed_ch05-naming.pdf").delete();
     }
 
     private static boolean compareFiles(String file1, String file2) throws IOException, NoSuchAlgorithmException {
