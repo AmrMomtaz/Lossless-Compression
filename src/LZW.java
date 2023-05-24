@@ -1,5 +1,6 @@
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,50 +13,49 @@ public class LZW implements CompressionAlgorithm {
 
     @Override
     public void compress(String filePath) {
-        File inputFile = new File(filePath);
         File compressedFile = new File(changeExtension(filePath, ".lzw", false));
 
         // Initialize dictionary with all possible byte values.
-        Map<String, Integer> dictionary = new HashMap<>();
+        Map<ByteArrayWrapper, Integer> dictionary = new HashMap<>();
         for (int i = 0; i < 256; i++) {
-            dictionary.put("" + (char) i, i);
+            byte[] b = new byte[1];
+            b[0] = (byte) i;
+            dictionary.put(new ByteArrayWrapper(b), i);
         }
 
         // Read input file into a byte array.
-        byte[] inputBytes = new byte[0];
-        try {
-            inputBytes = Files.readAllBytes(inputFile.toPath());
+        byte[] inputBytes;
+        try (InputStream inputStream = Files.newInputStream(Paths.get(filePath))) {
+            inputBytes = inputStream.readAllBytes();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
         // Compress the input data.
         List<Integer> outputBytes = new ArrayList<>();
-        ByteArrayOutputStream compressedData = new ByteArrayOutputStream();
-        String current = "";
+        byte[] current = new byte[0];
         for (byte b : inputBytes) {
-            String next = current + (char) b;
-            if (dictionary.containsKey(next)) {
+            byte[] next = new byte[current.length + 1];
+            System.arraycopy(current, 0, next, 0, current.length);
+            next[current.length] = b;
+            if (dictionary.containsKey(new ByteArrayWrapper(next))) {
                 current = next;
             } else {
-                Integer outByte = dictionary.get(current);
-                compressedData.write(outByte.byteValue());
+                Integer outByte = dictionary.get(new ByteArrayWrapper(current));
                 outputBytes.add(outByte);
-                dictionary.put(next, dictionary.size());
-                current = "" + (char) b;
+                dictionary.put(new ByteArrayWrapper(next), dictionary.size());
+                current = new byte[1];
+                current[0] = b;
             }
         }
-        if (!current.equals("")) {
-            Integer outByte = dictionary.get(current);
-            compressedData.write(outByte.byteValue());
+        if (current.length > 0) {
+            Integer outByte = dictionary.get(new ByteArrayWrapper(current));
             outputBytes.add(outByte);
         }
 
         // Write compressed data to output file.
-        try (DataOutputStream outputStream = new DataOutputStream(new FileOutputStream(compressedFile))) {
-            for (Integer i: outputBytes) {
-                outputStream.writeInt(i);
-            }
+        try (ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(compressedFile))) {
+            outputStream.writeObject(outputBytes);
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {
@@ -68,52 +68,56 @@ public class LZW implements CompressionAlgorithm {
     public void decompress(String filePath) {
         File inputFile = new File(filePath);
         // file extension should be changed if the original file is not txt file
-        File decompressedFile = new File(changeExtension(filePath, ".txt", true));
+        File decompressedFile = new File(changeExtension(filePath, ".pdf", true));
 
         // Initialize dictionary with all possible byte values.
-        Map<Integer, String> dictionary = new HashMap<>();
+        Map<Integer, ByteArrayWrapper> dictionary = new HashMap<>();
         for (int i = 0; i < 256; i++) {
-            dictionary.put(i, "" + (char) i);
+            byte[] b = new byte[1];
+            b[0] = (byte) i;
+            dictionary.put(i, new ByteArrayWrapper(b));
         }
 
         // Read input file into a byte array.
         List<Integer> inputBytes = new ArrayList<>();
-        try {
-            DataInputStream inputStream = new DataInputStream(new FileInputStream(inputFile));
-            while (inputStream.available() != 0) {
-                inputBytes.add(inputStream.readInt());
-            }
+        try (ObjectInputStream inputStream = new ObjectInputStream(new FileInputStream(inputFile))) {
+            inputBytes = (ArrayList<Integer>) inputStream.readObject();
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
         // Decompress the input data.
         ByteArrayOutputStream decompressedData = new ByteArrayOutputStream();
         int currentCode = inputBytes.get(0);
-        String currentString = dictionary.get(currentCode);
+        byte[] currentByte = dictionary.get(currentCode).getBytes();
         try {
-            decompressedData.write(currentString.getBytes());
+            decompressedData.write(currentByte);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         for (int i = 1; i < inputBytes.size(); i++) {
             int nextCode = inputBytes.get(i);
-            String nextString;
+            byte[] nextByte;
             if (dictionary.containsKey(nextCode)) {
-                nextString = dictionary.get(nextCode);
-            } else if (nextCode == dictionary.size()) {
-                nextString = currentString + currentString.charAt(0);
+                nextByte = dictionary.get(nextCode).getBytes();
             } else {
-                throw new IllegalArgumentException("Bad compressed data: " +nextCode);
+                nextByte = new byte[currentByte.length + 1];
+                System.arraycopy(currentByte, 0, nextByte, 0, currentByte.length);
+                nextByte[currentByte.length] = currentByte[0];
             }
             try {
-                decompressedData.write(nextString.getBytes());
+                decompressedData.write(nextByte);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            dictionary.put(dictionary.size(), currentString + nextString.charAt(0));
-            currentString = nextString;
+            byte[] addedByte = new byte[currentByte.length + 1];
+            System.arraycopy(currentByte, 0, addedByte, 0, currentByte.length);
+            addedByte[currentByte.length] = nextByte[0];
+            dictionary.put(dictionary.size(), new ByteArrayWrapper(addedByte));
+            currentByte = nextByte;
         }
 
 
