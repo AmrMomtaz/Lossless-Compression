@@ -11,14 +11,14 @@ import java.security.NoSuchAlgorithmException;
 public class Main {
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
         ArithmeticCoding arithmeticCoding = new ArithmeticCoding();
-        arithmeticCoding.compress("ch05-naming.pdf");
-        arithmeticCoding.decompress("ch05-naming.pdf.AE");
+        arithmeticCoding.compress("lorem.txt");
+        arithmeticCoding.decompress("lorem.txt.AE");
 
-        System.out.println(compareFiles("ch05-naming.pdf",
-                "decompressed_ch05-naming.pdf"));
+        System.out.println(compareFiles("lorem.txt",
+                "decompressed_lorem.txt"));
 
-        new File("ch05-naming.pdf.AE").delete();
-        new File("decompressed_ch05-naming.pdf").delete();
+//        new File("ch05-naming.pdf.AE").delete();
+//        new File("decompressed_ch05-naming.pdf").delete();
     }
 
     private static boolean compareFiles(String file1, String file2) throws IOException, NoSuchAlgorithmException {

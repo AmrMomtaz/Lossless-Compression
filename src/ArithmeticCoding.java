@@ -5,19 +5,16 @@ import java.io.*;
  */
 public class ArithmeticCoding implements CompressionAlgorithm {
 
-    protected final long halfRange;
-    protected final long quarterRange;
-    protected final long stateMask;
-    protected long low;
-    protected long high;
+    // Constants
+    protected static final long halfRange = (1L << 32) >>> 1;
+    protected static final long quarterRange = ((1L << 32) >>> 1) >>> 1;
+    protected static final long stateMask = (1L << 32) - 1;
 
-    public ArithmeticCoding() {
-        halfRange = (1L << 32) >>> 1;
-        quarterRange = halfRange >>> 1;
-        stateMask = (1L << 32) - 1;
-        low = 0;
-        high = stateMask;
-    }
+    // State variables
+    protected long low = 0;
+    protected long high = (1L << 32) - 1;
+
+    public ArithmeticCoding() { }
 
     //
     // Public Methods
@@ -25,21 +22,22 @@ public class ArithmeticCoding implements CompressionAlgorithm {
 
     @Override
     public void compress(String filePath) throws IOException {
-        ProbabilitiesTable frequencies = getFrequencies(filePath);
+        FrequencyTable frequencies = getFrequencies(filePath);
         frequencies.increment(256);
         try (InputStream in = new BufferedInputStream(new FileInputStream(filePath));
              OutputStream out = new BufferedOutputStream(new FileOutputStream(filePath + ".AE"))) {
+            writeFrequencies(frequencies, out);
             compress(frequencies, in, out);
         }
     }
 
     @Override
     public void decompress(String filePath) throws IOException {
-        try (InputStream in = new BufferedInputStream(new FileInputStream(filePath));
-             OutputStream out = new BufferedOutputStream
+        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(filePath));
+             OutputStream outputStream = new BufferedOutputStream
                  (new FileOutputStream("decompressed_" + filePath.substring(0, filePath.length()-3)))) {
-            ProbabilitiesTable frequencies = readFrequencies(in);
-            decompress(frequencies, in, out);
+            FrequencyTable frequencies = readFrequencies(inputStream);
+            decompress(frequencies, inputStream, outputStream);
         }
     }
 
@@ -48,13 +46,13 @@ public class ArithmeticCoding implements CompressionAlgorithm {
     //
 
     /**
-     * Creates and returns a new probabilities' table after accessing a given file path.
+     * Creates and returns a new frequency table after processing a given file path.
      */
-    private static ProbabilitiesTable getFrequencies(String filePath) throws IOException {
-        ProbabilitiesTable frequencies = new ProbabilitiesTable(new int[257]);
-        try (InputStream input = new BufferedInputStream(new FileInputStream(filePath))) {
+    private static FrequencyTable getFrequencies(String filePath) throws IOException {
+        FrequencyTable frequencies = new FrequencyTable(new int[257]);
+        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(filePath))) {
             while (true) {
-                int b = input.read();
+                int b = inputStream.read();
                 if (b == -1) break;
                 frequencies.increment(b);
             }
@@ -67,31 +65,41 @@ public class ArithmeticCoding implements CompressionAlgorithm {
      * and compresses a given InputStream to produce the compressed file.
      */
     private static void compress
-        (ProbabilitiesTable frequencies, InputStream in, OutputStream out) throws IOException {
+        (FrequencyTable frequencies, InputStream inputStream, OutputStream outputStream) throws IOException {
 
-        // Write the frequencies
-        for (int i = 0; i < 256; i++)
-            for (int j = 32 - 1; j >= 0; j--)
-                out.write((frequencies.get(i) >>> j) & 1);
-
-        ArithmeticEncoder arithmeticEncoder = new ArithmeticEncoder(out);
+        ArithmeticEncoder arithmeticEncoder = new ArithmeticEncoder(outputStream);
         while (true) {
-            int symbol = in.read();
+            int symbol = inputStream.read();
             if (symbol == -1) break;
-            arithmeticEncoder.update(new ProbabilitiesTable(frequencies), symbol);
+            arithmeticEncoder.update(frequencies, symbol);
         }
-        arithmeticEncoder.update(new ProbabilitiesTable(frequencies), 256);
-        arithmeticEncoder.output.write(1);
+        arithmeticEncoder.update(frequencies, 256);
+        outputStream.write(1);
+    }
+
+    /**
+     * Writes the frequency table.
+     */
+    private static void writeFrequencies
+        (FrequencyTable frequencies, OutputStream out) throws IOException {
+        for (int i = 0; i < 256; i++) {
+            int num = frequencies.getFrequency(i);
+            out.write((num >> 24) & 0xFF);
+            out.write((num >> 16) & 0xFF);
+            out.write((num >> 8) & 0xFF);
+            out.write(num & 0xFF);
+        }
     }
 
     /**
      * Reads a frequency table from a given input stream and returns it.
      */
-    private static ProbabilitiesTable readFrequencies(InputStream in) throws IOException {
-        int[] frequencies = new int[257];
-        for (int i = 0; i < 256; i++) frequencies[i] = nextInt(in);
-        frequencies[256] = 1;
-        return new ProbabilitiesTable(frequencies);
+    private static FrequencyTable readFrequencies(InputStream in) throws IOException {
+        int[] frequencies = new int[257]; frequencies[256] = 1;
+        for (int i = 0; i < 256; i++)
+            frequencies[i] = in.read() << 24 | in.read() << 16 |
+                in.read() << 8 | in.read();
+        return new FrequencyTable(frequencies);
     }
 
     /**
@@ -99,23 +107,14 @@ public class ArithmeticCoding implements CompressionAlgorithm {
      * and decompresses a given InputStream to produce the decompressed file.
      */
     private static void decompress
-            (ProbabilitiesTable frequencies, InputStream in, OutputStream out) throws IOException {
+            (FrequencyTable frequencies, InputStream inputStream, OutputStream outputStream) throws IOException {
 
-        ArithmeticDecoder arithmeticDecoder = new ArithmeticDecoder(in);
+        ArithmeticDecoder arithmeticDecoder = new ArithmeticDecoder(inputStream);
         while (true) {
             int symbol = arithmeticDecoder.nextSymbol(frequencies);
             if (symbol == 256) break;
-            out.write(symbol);
+            outputStream.write(symbol);
         }
-    }
-
-    /**
-     * Reads and returns an integer from InputStream.
-     */
-    private static int nextInt(InputStream in) throws IOException {
-        int result = 0;
-        for (int i = 0; i < 32; i++) result = (result << 1) | in.read();
-        return result;
     }
 
     //
@@ -127,7 +126,7 @@ public class ArithmeticCoding implements CompressionAlgorithm {
      */
     private static final class ArithmeticEncoder extends ArithmeticCoding {
 
-        OutputStream output;
+        private final OutputStream output;
         private int numUnderflow = 0;
 
         public ArithmeticEncoder(OutputStream out) { output = out; }
@@ -135,14 +134,14 @@ public class ArithmeticCoding implements CompressionAlgorithm {
         /**
          * Updates the encoder state.
          */
-        public void update(ProbabilitiesTable frequencies, int symbol) throws IOException {
+        public void update(FrequencyTable frequencies, int symbol) throws IOException {
             long temp = low + frequencies.getHigh(symbol) * (high - low + 1) / frequencies.getTotal() - 1;
             low += frequencies.getLow(symbol)  * (high - low + 1) / frequencies.getTotal();
             high = temp;
             while (((low ^ high) & halfRange) == 0) {
                 int bit = (int) (low >>> (31));
                 output.write(bit);
-                for (; numUnderflow > 0; numUnderflow--) output.write(bit ^ 1);
+                for ( ; numUnderflow > 0 ; numUnderflow--) output.write(bit ^ 1);
                 low = ((low << 1) & stateMask);
                 high = ((high << 1) & stateMask) | 1;
             }
@@ -159,28 +158,28 @@ public class ArithmeticCoding implements CompressionAlgorithm {
      */
     private static final class ArithmeticDecoder extends ArithmeticCoding {
 
-        private final InputStream input;
+        private final InputStream inputStream;
         private long code;
 
-        public ArithmeticDecoder(InputStream in) throws IOException {
-            input = in; code = 0;
-            for (int i = 0; i < 32; i++) code = code << 1 | Math.max(0, input.read());
+        public ArithmeticDecoder(InputStream inputStream) throws IOException {
+            this.inputStream = inputStream; code = 0;
+            for (int i = 0; i < 32; i++) code = code << 1 | Math.max(0, this.inputStream.read());
         }
 
         /**
          * Updates the decoder state.
          */
-        public void update(ProbabilitiesTable frequencies, int symbol) throws IOException {
+        public void update(FrequencyTable frequencies, int symbol) throws IOException {
             long temp = (low + frequencies.getHigh(symbol) * (high - low + 1) / frequencies.getTotal() - 1);
             low += frequencies.getLow(symbol)  * (high - low + 1) / frequencies.getTotal();
             high = temp;
             while (((low ^ high) & halfRange) == 0) {
-                code = ((code << 1) & stateMask) | Math.max(0, input.read());
+                code = ((code << 1) & stateMask) | Math.max(0, inputStream.read());
                 low  = ((low  << 1) & stateMask);
                 high = ((high << 1) & stateMask) | 1;
             }
             while ((low & ~high & quarterRange) != 0) {
-                code = (code & halfRange) | ((code << 1) & (stateMask >>> 1)) | Math.max(0, input.read());
+                code = (code & halfRange) | ((code << 1) & (stateMask >>> 1)) | Math.max(0, inputStream.read());
                 low = (low << 1) ^ halfRange;
                 high = ((high ^ halfRange) << 1) | halfRange | 1;
             }
@@ -189,9 +188,9 @@ public class ArithmeticCoding implements CompressionAlgorithm {
         /**
          * Gets the next symbol.
          */
-        public int nextSymbol(ProbabilitiesTable frequencies) throws IOException {
+        public int nextSymbol(FrequencyTable frequencies) throws IOException {
             long value = (((code - low) + 1) * frequencies.getTotal() - 1) / (high - low + 1);
-            int start = 0, end = frequencies.getSymbolLimit();
+            int start = 0, end = 257;
             while (end - start > 1) {
                 int middle = (start + end) >>> 1;
                 if (frequencies.getLow(middle) > value) end = middle;
@@ -206,36 +205,22 @@ public class ArithmeticCoding implements CompressionAlgorithm {
      * Represents the probabilities' table which holds the cumulative probability
      * and the occurrences of each character.
      */
-    private static final class ProbabilitiesTable {
+    private static final class FrequencyTable {
 
-        public final int[] occurrences;
+        public final int[] frequencies;
         private int[] cumulative = null;
         private int total = 0;
 
-        public ProbabilitiesTable(int[] frequencies) {
-            occurrences = frequencies.clone();
-            for (int x : occurrences) total = Math.addExact(x, total);
+        public FrequencyTable(int[] frequencies) {
+            this.frequencies = frequencies;
+            for (int x : this.frequencies) total += x;
         }
 
-        public ProbabilitiesTable(ProbabilitiesTable frequencies) {
-            int numSym = frequencies.getSymbolLimit();
-            occurrences = new int[numSym];
-            total = 0;
-            for (int i = 0; i < occurrences.length; i++) {
-                int x = frequencies.get(i);
-                occurrences[i] = x;
-                total = Math.addExact(x, total);
-            }
-            cumulative = null;
-        }
-
-        public int getSymbolLimit() { return occurrences.length; }
-
-        public int get(int symbol) { return occurrences[symbol]; }
+        public int getFrequency(int symbol) { return frequencies[symbol]; }
 
         public void increment(int symbol) {
-            total = Math.addExact(total, 1);
-            occurrences[symbol]++;
+            total++;
+            frequencies[symbol]++;
             cumulative = null;
         }
 
@@ -252,10 +237,10 @@ public class ArithmeticCoding implements CompressionAlgorithm {
         }
 
         private void updateCumulative() {
-            cumulative = new int[occurrences.length + 1];
             int sum = 0;
-            for (int i = 0; i < occurrences.length; i++) {
-                sum = Math.addExact(occurrences[i], sum);
+            cumulative = new int[frequencies.length + 1];
+            for (int i = 0; i < frequencies.length; i++) {
+                sum += frequencies[i];
                 cumulative[i + 1] = sum;
             }
         }
