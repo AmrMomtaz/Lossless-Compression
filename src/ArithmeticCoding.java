@@ -1,4 +1,5 @@
 import java.io.*;
+import java.util.Scanner;
 
 /**
  * Implementation of the arithmetic coding algorithm.
@@ -6,6 +7,7 @@ import java.io.*;
 public class ArithmeticCoding implements CompressionAlgorithm {
 
     // Constants
+    private static final String lastByteFileName = "LastByte.txt";
     protected static final long halfRange = (1L << 32) >>> 1;
     protected static final long quarterRange = ((1L << 32) >>> 1) >>> 1;
     protected static final long stateMask = (1L << 32) - 1;
@@ -25,7 +27,9 @@ public class ArithmeticCoding implements CompressionAlgorithm {
         FrequencyTable frequencies = getFrequencies(filePath);
         frequencies.increment(256);
         try (InputStream in = new BufferedInputStream(new FileInputStream(filePath));
-             OutputStream out = new BufferedOutputStream(new FileOutputStream(filePath + ".AE"))) {
+             BitOutputStream out = new BitOutputStream(new BufferedOutputStream
+                 (new FileOutputStream(filePath + ".AE")))) {
+
             writeFrequencies(frequencies, out);
             compress(frequencies, in, out);
         }
@@ -33,17 +37,55 @@ public class ArithmeticCoding implements CompressionAlgorithm {
 
     @Override
     public void decompress(String filePath) throws IOException {
-        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(filePath));
+        try (Scanner sc = new Scanner(new File(lastByteFileName));
+             InputStream inputStream = new BufferedInputStream(new FileInputStream(filePath));
              OutputStream outputStream = new BufferedOutputStream
                  (new FileOutputStream("decompressed_" + filePath.substring(0, filePath.length()-3)))) {
-            FrequencyTable frequencies = readFrequencies(inputStream);
-            decompress(frequencies, inputStream, outputStream);
+
+            BitInputStream bitInputStream;
+            int lastBits = sc.nextInt();
+            long fileSize = new File(filePath).length();
+            bitInputStream = new BitInputStream(inputStream, fileSize, lastBits);
+            FrequencyTable frequencies = readFrequencies(bitInputStream);
+            decompress(frequencies, bitInputStream, outputStream);
         }
     }
 
     //
     // Private methods
     //
+
+    /**
+     * Compression helper function. Creates an instance of ArithmeticEncoder
+     * and compresses a given InputStream to produce the compressed file.
+     */
+    private static void compress
+        (FrequencyTable frequencies, InputStream inputStream, BitOutputStream bitOutputStream) throws IOException {
+
+        ArithmeticEncoder arithmeticEncoder = new ArithmeticEncoder(bitOutputStream);
+        while (true) {
+            int symbol = inputStream.read();
+            if (symbol == -1) break;
+            arithmeticEncoder.update(frequencies, symbol);
+        }
+        arithmeticEncoder.update(frequencies, 256);
+        bitOutputStream.writeBit(1);
+    }
+
+    /**
+     * Decompress helper function. Creates an instance of ArithmeticDecoder
+     * and decompresses a given InputStream to produce the decompressed file.
+     */
+    private static void decompress
+    (FrequencyTable frequencies, BitInputStream bitInputStream, OutputStream outputStream) throws IOException {
+
+        ArithmeticDecoder arithmeticDecoder = new ArithmeticDecoder(bitInputStream);
+        while (true) {
+            int symbol = arithmeticDecoder.nextSymbol(frequencies);
+            if (symbol == 256) break;
+            outputStream.write(symbol);
+        }
+    }
 
     /**
      * Creates and returns a new frequency table after processing a given file path.
@@ -61,59 +103,32 @@ public class ArithmeticCoding implements CompressionAlgorithm {
     }
 
     /**
-     * Compression helper function. Creates an instance of ArithmeticEncoder
-     * and compresses a given InputStream to produce the compressed file.
+     * Reads a frequency table from a given input stream and returns it.
      */
-    private static void compress
-        (FrequencyTable frequencies, InputStream inputStream, OutputStream outputStream) throws IOException {
-
-        ArithmeticEncoder arithmeticEncoder = new ArithmeticEncoder(outputStream);
-        while (true) {
-            int symbol = inputStream.read();
-            if (symbol == -1) break;
-            arithmeticEncoder.update(frequencies, symbol);
+    private static FrequencyTable readFrequencies(BitInputStream bitInputStream) throws IOException {
+        int[] frequencies = new int[257]; frequencies[256] = 1;
+        for (int i = 0; i < 256; i++) {
+            int frequency = 0;
+            for (int j = 0 ; j < 32 ; j++) {
+                frequency <<= 1;
+                frequency |= bitInputStream.readBit();
+            }
+            frequencies[i] = frequency;
         }
-        arithmeticEncoder.update(frequencies, 256);
-        outputStream.write(1);
+        return new FrequencyTable(frequencies);
     }
 
     /**
      * Writes the frequency table.
      */
     private static void writeFrequencies
-        (FrequencyTable frequencies, OutputStream out) throws IOException {
+        (FrequencyTable frequencies, BitOutputStream out) throws IOException {
         for (int i = 0; i < 256; i++) {
             int num = frequencies.getFrequency(i);
-            out.write((num >> 24) & 0xFF);
-            out.write((num >> 16) & 0xFF);
-            out.write((num >> 8) & 0xFF);
-            out.write(num & 0xFF);
-        }
-    }
-
-    /**
-     * Reads a frequency table from a given input stream and returns it.
-     */
-    private static FrequencyTable readFrequencies(InputStream in) throws IOException {
-        int[] frequencies = new int[257]; frequencies[256] = 1;
-        for (int i = 0; i < 256; i++)
-            frequencies[i] = in.read() << 24 | in.read() << 16 |
-                in.read() << 8 | in.read();
-        return new FrequencyTable(frequencies);
-    }
-
-    /**
-     * Decompress helper function. Creates an instance of ArithmeticDecoder
-     * and decompresses a given InputStream to produce the decompressed file.
-     */
-    private static void decompress
-            (FrequencyTable frequencies, InputStream inputStream, OutputStream outputStream) throws IOException {
-
-        ArithmeticDecoder arithmeticDecoder = new ArithmeticDecoder(inputStream);
-        while (true) {
-            int symbol = arithmeticDecoder.nextSymbol(frequencies);
-            if (symbol == 256) break;
-            outputStream.write(symbol);
+            out.writeByte((num >> 24) & 0xFF);
+            out.writeByte((num >> 16) & 0xFF);
+            out.writeByte((num >> 8) & 0xFF);
+            out.writeByte(num & 0xFF);
         }
     }
 
@@ -126,10 +141,10 @@ public class ArithmeticCoding implements CompressionAlgorithm {
      */
     private static final class ArithmeticEncoder extends ArithmeticCoding {
 
-        private final OutputStream output;
+        private final BitOutputStream bitOutputStream;
         private int numUnderflow = 0;
 
-        public ArithmeticEncoder(OutputStream out) { output = out; }
+        public ArithmeticEncoder(BitOutputStream bitOutputStream) { this.bitOutputStream = bitOutputStream; }
 
         /**
          * Updates the encoder state.
@@ -140,8 +155,8 @@ public class ArithmeticCoding implements CompressionAlgorithm {
             high = temp;
             while (((low ^ high) & halfRange) == 0) {
                 int bit = (int) (low >>> (31));
-                output.write(bit);
-                for ( ; numUnderflow > 0 ; numUnderflow--) output.write(bit ^ 1);
+                bitOutputStream.writeBit(bit);
+                for ( ; numUnderflow > 0 ; numUnderflow--) bitOutputStream.writeBit(bit ^ 1);
                 low = ((low << 1) & stateMask);
                 high = ((high << 1) & stateMask) | 1;
             }
@@ -158,12 +173,13 @@ public class ArithmeticCoding implements CompressionAlgorithm {
      */
     private static final class ArithmeticDecoder extends ArithmeticCoding {
 
-        private final InputStream inputStream;
+        private final BitInputStream bitInputStream;
         private long code;
 
-        public ArithmeticDecoder(InputStream inputStream) throws IOException {
-            this.inputStream = inputStream; code = 0;
-            for (int i = 0; i < 32; i++) code = code << 1 | Math.max(0, this.inputStream.read());
+        public ArithmeticDecoder(BitInputStream bitInputStream) throws IOException {
+            this.bitInputStream = bitInputStream;
+            this.code = 0;
+            for (int i = 0; i < 32; i++) code = code << 1 | Math.max(0, this.bitInputStream.readBit());
         }
 
         /**
@@ -174,12 +190,14 @@ public class ArithmeticCoding implements CompressionAlgorithm {
             low += frequencies.getLow(symbol)  * (high - low + 1) / frequencies.getTotal();
             high = temp;
             while (((low ^ high) & halfRange) == 0) {
-                code = ((code << 1) & stateMask) | Math.max(0, inputStream.read());
+                int bit = Math.max(0, bitInputStream.readBit());
+                code = ((code << 1) & stateMask) | bit;
                 low  = ((low  << 1) & stateMask);
                 high = ((high << 1) & stateMask) | 1;
             }
             while ((low & ~high & quarterRange) != 0) {
-                code = (code & halfRange) | ((code << 1) & (stateMask >>> 1)) | Math.max(0, inputStream.read());
+                int bit = Math.max(0, bitInputStream.readBit());
+                code = (code & halfRange) | ((code << 1) & (stateMask >>> 1)) | bit;
                 low = (low << 1) ^ halfRange;
                 high = ((high ^ halfRange) << 1) | halfRange | 1;
             }
@@ -243,6 +261,81 @@ public class ArithmeticCoding implements CompressionAlgorithm {
                 sum += frequencies[i];
                 cumulative[i + 1] = sum;
             }
+        }
+    }
+
+    /**
+     * Used to write bits using output stream.
+     */
+    private static final class BitOutputStream implements AutoCloseable {
+        private final OutputStream outputStream;
+        private int byteToWrite;
+        private int bitsLeft;
+
+        public BitOutputStream(OutputStream outputStream) {
+            this.outputStream = outputStream;
+            this.byteToWrite = 0;
+            this.bitsLeft = 8;
+        }
+
+        public void writeBit(int bit) throws IOException {
+            byteToWrite <<= 1;
+            byteToWrite |= bit;
+            bitsLeft--;
+            if (bitsLeft == 0) {
+                outputStream.write(byteToWrite);
+                byteToWrite = 0;
+                bitsLeft = 8;
+            }
+        }
+
+        public void writeByte(int b) throws IOException {
+            this.outputStream.write(b);
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (bitsLeft != 8) {
+                try (FileWriter fileWriter = new FileWriter(lastByteFileName)) {
+                    fileWriter.write((8 - bitsLeft) + "");
+                }
+                outputStream.write(byteToWrite);
+            }
+            outputStream.close();
+        }
+    }
+
+    /**
+     * Used to read bits given InputStream.
+     */
+    private static final class BitInputStream {
+        private final InputStream inputStream;
+        private final long fileSize;
+        private final int lastBits;
+        private long byteIndex;
+        private int currentByte;
+        private int bitsLeft;
+
+        public BitInputStream(InputStream inputStream, long fileSize, int lastBits) {
+            this.inputStream = inputStream;
+            this.fileSize = fileSize;
+            this.lastBits = lastBits;
+            this.byteIndex = 0L;
+            this.currentByte = 0;
+            this.bitsLeft = 0;
+        }
+
+        public int readBit() throws IOException {
+            if (bitsLeft == 0) {
+                byteIndex++;
+                currentByte = inputStream.read();
+                if (currentByte == -1) return -1;
+                bitsLeft = byteIndex == fileSize ? lastBits :  8;
+            }
+            int temp = currentByte;
+            temp >>= (bitsLeft-1);
+            bitsLeft--;
+            return temp & 1;
         }
     }
 }
