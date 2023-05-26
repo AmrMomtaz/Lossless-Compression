@@ -3,8 +3,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class Huffman implements CompressionAlgorithm{
-    static Node decompressRoot = null;
-    private static class Node{
+    Node decompressRoot = null;
+    private class Node{
         String unit;
         int freq;
         Node left;
@@ -75,7 +75,7 @@ public class Huffman implements CompressionAlgorithm{
     }
 
     // create a frequency table of all the units in the file
-    private static HashMap<String, Integer> generateFreqTable(String path, int n, int[] numUnits, int[] sizeLast){
+    private HashMap<String, Integer> generateFreqTable(String path, int n, int[] numUnits, int[] sizeLast){
         HashMap<String, Integer> freqTable = new HashMap<>();
         // read file byte by byte and count the chunks
         try(BufferedInputStream bis = new BufferedInputStream(new FileInputStream(path))){
@@ -107,7 +107,7 @@ public class Huffman implements CompressionAlgorithm{
     }
 
     // create an array of nodes using the frequency table
-    private static Node[] generateNodes(HashMap<String, Integer> freqTable){
+    private Node[] generateNodes(HashMap<String, Integer> freqTable){
         Node[] nodes = new Node[freqTable.size()];
         int index = 0;
         for(String unit : freqTable.keySet()){
@@ -117,7 +117,7 @@ public class Huffman implements CompressionAlgorithm{
     }
 
     // create the binary tree using the nodes carrying the units and their frequencies
-    private static Node generateTree(Node[] nodes){
+    private Node generateTree(Node[] nodes){
         Node node1, node2, tempNode, root = null;
         PriorityQueue<Node> pq = new PriorityQueue<>(Comparator.comparingInt(node -> node.freq));
         // fill the queue
@@ -137,7 +137,7 @@ public class Huffman implements CompressionAlgorithm{
     }
 
     // traverse inorder to generate the code
-    private static void generateCode(HashMap<String, String> codes, Node node, String code){
+    private void generateCode(HashMap<String, String> codes, Node node, String code){
         if(node == null) {
             return;
         }
@@ -146,13 +146,13 @@ public class Huffman implements CompressionAlgorithm{
         generateCode(codes, node.right, code + "1");
     }
 
-    private static String getFirstLine(int n, int[] numUnits, int[] sizeLast){
+    private String getFirstLine(int n, int[] numUnits, int[] sizeLast){
         String line = "";
         line += String.valueOf(n) + '-' + numUnits[0] + '-' + sizeLast[0] + '\n';
         return line;
     }
 
-    private static String getBfsTree(Node root, int n){
+    private String getBfsTree(Node root, int n){
         StringBuilder tree = new StringBuilder();
         Queue<Node> nodes = new LinkedList<>();
         nodes.add(root);
@@ -241,7 +241,7 @@ public class Huffman implements CompressionAlgorithm{
         // // every time there's a hit we'll write to the file
         // convert each n bytes into their code and write in compressed file : d-c (A lot of work)
     }
-    private static byte encodeToByte(int[] bits) {
+    private byte encodeToByte(int[] bits) {
         byte result = 0;
         int byteValue = 0;
         int index;
@@ -255,9 +255,8 @@ public class Huffman implements CompressionAlgorithm{
         return result;
     }
     ///////////////////////////////////  DECOMPRESSION //////////////////////////////////////////////////////////
-    private static void insertNode(Queue<Node>q, String unit){
+    private void insertNode(Queue<Node> q, String unit){
         Node node = new Node(unit, 0, null, null);
-
         if(decompressRoot == null){
             decompressRoot = node;
         }
@@ -271,7 +270,7 @@ public class Huffman implements CompressionAlgorithm{
         if(node.unit.length() == 0) q.add(node);
 
     }
-    private static void generateCodeReversed(HashMap<String,String> codes, Node node, String code){
+    private void generateCodeReversed(HashMap<String,String> codes, Node node, String code){
         if(node == null) {
             return;
         }
