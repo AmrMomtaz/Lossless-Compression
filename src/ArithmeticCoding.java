@@ -1,5 +1,4 @@
 import java.io.*;
-import java.util.Scanner;
 
 /**
  * Implementation of the arithmetic coding algorithm.
@@ -7,7 +6,6 @@ import java.util.Scanner;
 public class ArithmeticCoding implements CompressionAlgorithm {
 
     // Constants
-    private static final String lastByteFileName = "LastByte.txt";
     protected static final long halfRange = (1L << 32) >>> 1;
     protected static final long quarterRange = ((1L << 32) >>> 1) >>> 1;
     protected static final long stateMask = (1L << 32) - 1;
@@ -37,15 +35,11 @@ public class ArithmeticCoding implements CompressionAlgorithm {
 
     @Override
     public void decompress(String filePath) throws IOException {
-        try (Scanner sc = new Scanner(new File(lastByteFileName));
-             InputStream inputStream = new BufferedInputStream(new FileInputStream(filePath));
+        try (BitInputStream bitInputStream = new BitInputStream(new BufferedInputStream
+                (new FileInputStream(filePath)), new File(filePath).length());
              OutputStream outputStream = new BufferedOutputStream
                  (new FileOutputStream("decompressed_" + filePath.substring(0, filePath.length()-3)))) {
 
-            BitInputStream bitInputStream;
-            int lastBits = sc.nextInt();
-            long fileSize = new File(filePath).length();
-            bitInputStream = new BitInputStream(inputStream, fileSize, lastBits);
             FrequencyTable frequencies = readFrequencies(bitInputStream);
             decompress(frequencies, bitInputStream, outputStream);
         }
@@ -301,12 +295,8 @@ public class ArithmeticCoding implements CompressionAlgorithm {
 
         @Override
         public void close() throws IOException {
-            if (bitsLeft != 8) {
-                try (FileWriter fileWriter = new FileWriter(lastByteFileName)) {
-                    fileWriter.write((8 - bitsLeft) + "");
-                }
-                outputStream.write(byteToWrite);
-            }
+            outputStream.write((8 - bitsLeft));
+            outputStream.write(byteToWrite);
             outputStream.close();
         }
     }
@@ -314,18 +304,16 @@ public class ArithmeticCoding implements CompressionAlgorithm {
     /**
      * Used to read bits given InputStream.
      */
-    private static final class BitInputStream {
+    private static final class BitInputStream implements AutoCloseable{
         private final InputStream inputStream;
         private final long fileSize;
-        private final int lastBits;
         private long byteIndex;
         private int currentByte;
         private int bitsLeft;
 
-        public BitInputStream(InputStream inputStream, long fileSize, int lastBits) {
+        public BitInputStream(InputStream inputStream, long fileSize) {
             this.inputStream = inputStream;
             this.fileSize = fileSize;
-            this.lastBits = lastBits;
             this.byteIndex = 0L;
             this.currentByte = 0;
             this.bitsLeft = 0;
@@ -336,12 +324,22 @@ public class ArithmeticCoding implements CompressionAlgorithm {
                 byteIndex++;
                 currentByte = inputStream.read();
                 if (currentByte == -1) return -1;
-                bitsLeft = byteIndex == fileSize ? lastBits :  8;
+                if (byteIndex == fileSize-1) {
+                    bitsLeft = currentByte;
+                    currentByte = inputStream.read();
+                    byteIndex++;
+                }
+                else bitsLeft = 8;
             }
             int temp = currentByte;
             temp >>= (bitsLeft-1);
             bitsLeft--;
             return temp & 1;
+        }
+
+        @Override
+        public void close() throws IOException {
+            this.inputStream.close();
         }
     }
 }
