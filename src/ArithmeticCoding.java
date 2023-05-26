@@ -50,6 +50,12 @@ public class ArithmeticCoding implements CompressionAlgorithm {
             decompress(frequencies, bitInputStream, outputStream);
         }
     }
+    public String getCompressedPath(String filePath) {
+        return filePath + ".AE";
+    }
+    public String getDecompressedPath(String filePath) {
+        return "decompressed_" + filePath.substring(0, filePath.length()-3);
+    }
 
     //
     // Private methods

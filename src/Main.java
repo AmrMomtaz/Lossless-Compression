@@ -11,11 +11,18 @@ import java.security.NoSuchAlgorithmException;
 public class Main {
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
         ArithmeticCoding arithmeticCoding = new ArithmeticCoding();
-        arithmeticCoding.compress("lorem.txt");
-        arithmeticCoding.decompress("lorem.txt.AE");
+        Huffman huffman = new Huffman();
+        LZW lzw = new LZW();
 
-        System.out.println(compareFiles("lorem.txt",
-                "decompressed_lorem.txt"));
+        // first test, 10KB file for all
+        compressionAlgorithmMetrics(huffman, "lorem10K.txt", "Huffman Algorithm");
+        compressionAlgorithmMetrics(huffman, "lorem10K.txt", "Huffman Algorithm");
+        compressionAlgorithmMetrics(huffman, "lorem10K.txt", "Huffman Algorithm");
+
+        // second test, individual test for each algorithm
+        compressionAlgorithmMetrics(huffman, "lorem160MB.txt", "Huffman Algorithm");
+        compressionAlgorithmMetrics(lzw, "Test_LZW.txt", "LZW Algorithm");
+        compressionAlgorithmMetrics(arithmeticCoding, "lorem20K.txt", "Arithmetic Algorithm");
     }
 
     private static boolean compareFiles(String file1, String file2) throws IOException, NoSuchAlgorithmException {
@@ -32,5 +39,39 @@ public class Main {
             while (dis.read(buffer) != -1) { }
             return md.digest();
         }
+    }
+
+    private static void compress(CompressionAlgorithm compressionAlgorithm, String path, String msg) throws IOException {
+        long start = System.currentTimeMillis();
+        compressionAlgorithm.compress(path);
+        System.out.println(msg + " "+ (System.currentTimeMillis() - start) + " ms");
+    }
+
+    private static void getCompressionRate(String originalPath, String compressedPath) {
+        long originalSize = new File(originalPath).length();
+        long compressedSize = new File(compressedPath).length();
+        System.out.println("Ratio (Compressed/Original) = " + ((float)compressedSize/(float)originalSize));
+    }
+
+    private static void decompress(CompressionAlgorithm compressionAlgorithm, String path, String msg) throws IOException {
+        long start = System.currentTimeMillis();
+        compressionAlgorithm.decompress(path);
+        System.out.println(msg + " " + (System.currentTimeMillis() - start) + " ms");
+    }
+
+    private static void compressionAlgorithmMetrics
+            (CompressionAlgorithm compressionAlgorithm, String path, String msg) throws IOException, NoSuchAlgorithmException {
+
+        String compressionPath = compressionAlgorithm.getCompressedPath(path);
+        String decompressionPath = compressionAlgorithm.getDecompressedPath(compressionPath);
+
+        compress(compressionAlgorithm, path, "Compression - " + msg);
+        getCompressionRate(path, compressionPath);
+        decompress(compressionAlgorithm, compressionPath, "Decompression - " + msg);
+
+        if(compareFiles(path, decompressionPath))
+            System.out.println("Hash Digest are equal in " + msg);
+        else
+            System.out.println("Hash Digest NOT equal in " + msg);
     }
 }
