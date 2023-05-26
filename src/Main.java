@@ -16,8 +16,8 @@ public class Main {
 
         // first test, 10KB file for all
         compressionAlgorithmMetrics(huffman, "lorem10K.txt", "Huffman Algorithm");
-        compressionAlgorithmMetrics(huffman, "lorem10K.txt", "Huffman Algorithm");
-        compressionAlgorithmMetrics(huffman, "lorem10K.txt", "Huffman Algorithm");
+        compressionAlgorithmMetrics(lzw, "lorem10K.txt", "LZW Algorithm");
+        compressionAlgorithmMetrics(arithmeticCoding, "lorem10K.txt", "Arithmetic Algorithm");
 
         // second test, individual test for each algorithm
         compressionAlgorithmMetrics(huffman, "lorem160MB.txt", "Huffman Algorithm");
