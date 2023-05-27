@@ -13,7 +13,7 @@ public class LZW implements CompressionAlgorithm {
 
     @Override
     public void compress(String filePath) {
-        File compressedFile = new File(changeExtension(filePath, ".lzw", false));
+        File compressedFile = new File(getCompressedPath(filePath));
 
         // Initialize dictionary with all possible byte values.
         Map<ByteArrayWrapper, Integer> dictionary = new HashMap<>();
@@ -68,7 +68,7 @@ public class LZW implements CompressionAlgorithm {
     public void decompress(String filePath) {
         File inputFile = new File(filePath);
         // file extension should be changed if the original file is not txt file
-        File decompressedFile = new File(changeExtension(filePath, ".txt", true));
+        File decompressedFile = new File(getDecompressedPath(filePath));
 
         // Initialize dictionary with all possible byte values.
         Map<Integer, ByteArrayWrapper> dictionary = new HashMap<>();
@@ -137,10 +137,12 @@ public class LZW implements CompressionAlgorithm {
         return newFilePath + newExtension;
     }
     public String getCompressedPath(String path) {
-        return changeExtension(path, ".lzw", false);
+        return path + ".lzw";
     }
 
     public String getDecompressedPath(String path) {
-        return changeExtension(path, ".txt", true);
+        String originalFilePath = path.substring(0, path.length() - 4);
+        String decompressedPath = changeExtension(originalFilePath, originalFilePath.substring(originalFilePath.lastIndexOf('.'), originalFilePath.length()), true);
+        return decompressedPath;
     }
 }
