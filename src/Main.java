@@ -10,34 +10,10 @@ import java.security.NoSuchAlgorithmException;
  */
 public class Main {
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
-        System.out.println("FIRST");
-        System.out.println("==================================");
-        // first test 10KB
-        compressionAlgorithmMetrics(new Huffman(), "lorem10K.txt", "Huffman Algorithm");
-        compressionAlgorithmMetrics(new LZW(), "lorem10K.txt", "LZW Algorithm");
-        compressionAlgorithmMetrics(new ArithmeticCoding(), "lorem10K.txt", "Arithmetic Algorithm");
-
-        System.out.println("SECOND");
-        System.out.println("==================================");
-        // second test same character 4.7 MB
-        compressionAlgorithmMetrics(new Huffman(), "Test_LZW.txt", "Huffman Algorithm");
-        compressionAlgorithmMetrics(new LZW(), "Test_LZW.txt", "LZW Algorithm");
-        compressionAlgorithmMetrics(new ArithmeticCoding(), "Test_LZW.txt", "Arithmetic Algorithm");
-
-        System.out.println("THIRD");
-        System.out.println("==================================");
-        // third test 258 MB
-        compressionAlgorithmMetrics(new Huffman(), "lorem250M.txt", "Huffman Algorithm");
-        compressionAlgorithmMetrics(new LZW(), "lorem250M.txt", "LZW Algorithm");
-        compressionAlgorithmMetrics(new ArithmeticCoding(), "lorem250M.txt", "Arithmetic Algorithm");
-
-        System.out.println("FORTH");
-        System.out.println("==================================");
-        // forth test 504 MB
-        compressionAlgorithmMetrics(new Huffman(), "lorem504M.txt", "Huffman Algorithm");
-        compressionAlgorithmMetrics(new LZW(), "lorem504M.txt", "LZW Algorithm");
-        compressionAlgorithmMetrics(new ArithmeticCoding(), "lorem504M.txt", "Arithmetic Algorithm");
-
+        String filePath = "";
+        compressionAlgorithmMetrics(new Huffman(), filePath, "Huffman Algorithm");
+        compressionAlgorithmMetrics(new LZW(), filePath, "LZW Algorithm");
+        compressionAlgorithmMetrics(new ArithmeticCoding(), filePath, "Arithmetic Algorithm");
     }
 
     private static boolean compareFiles(String file1, String file2) throws IOException, NoSuchAlgorithmException {
@@ -75,19 +51,19 @@ public class Main {
     }
 
     private static void compressionAlgorithmMetrics
-            (CompressionAlgorithm compressionAlgorithm, String path, String msg) throws IOException, NoSuchAlgorithmException {
+            (CompressionAlgorithm compressionAlgorithm, String path, String algorithmName) throws IOException, NoSuchAlgorithmException {
 
         String compressionPath = compressionAlgorithm.getCompressedPath(path);
         String decompressionPath = compressionAlgorithm.getDecompressedPath(compressionPath);
 
-        compress(compressionAlgorithm, path, "Compression - " + msg);
+        compress(compressionAlgorithm, path, "Compression - " + algorithmName);
         getCompressionRate(path, compressionPath);
-        decompress(compressionAlgorithm, compressionPath, "Decompression - " + msg);
+        decompress(compressionAlgorithm, compressionPath, "Decompression - " + algorithmName);
 
         if(compareFiles(path, decompressionPath))
-            System.out.println("Hash Digest are equal in " + msg);
+            System.out.println("Hash Digest are equal in " + algorithmName);
         else
-            System.out.println("Hash Digest NOT equal in " + msg);
+            System.out.println("Hash Digest NOT equal in " + algorithmName);
 
         System.out.println("============================================");
     }

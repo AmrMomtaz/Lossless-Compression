@@ -50,28 +50,14 @@ public class Huffman implements CompressionAlgorithm{
         return newPath;
     }
     private void compress(String path, int n){
-        long start = System.nanoTime();
         int[] numUnits = {0}; // number of units processed
         int[] sizeLast = {Integer.MAX_VALUE}; // size of the last byte, which is less than n if file size is not divisible by n
-//        System.out.println("Creating Table...");
         HashMap<String, Integer> freqTable = generateFreqTable(path, n, numUnits, sizeLast);
-//        System.out.println("Creating Nodes...");
         Node[]nodes = generateNodes(freqTable);
-//        System.out.println("Creating Tree...");
         Node root = generateTree(nodes);
-//        System.out.println("Creating Codes...");
         HashMap<String, String> codes = new HashMap<>();
         generateCode(codes, root, "");
-//        System.out.println("Compressing...");
         writeCompressed(codes, path, root, n, numUnits, sizeLast);
-//        System.out.println("Finished compressing!");
-        // getting the ratio and time
-//        long finish = System.nanoTime();
-//        long originalSize = new File(path).length();
-//        long compressedSize = new File(getCompressedPath(path, n)).length();
-//
-//        System.out.println("Ratio (Compressed/Original) = " + ((float)compressedSize/(float)originalSize));
-//        System.out.println("Time Taken : " + (finish - start) * ((float)1/(float)1000000000) + " Seconds");
     }
 
     // create a frequency table of all the units in the file
