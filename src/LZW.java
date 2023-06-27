@@ -1,10 +1,7 @@
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Implementation of Lempel–Ziv–Welch compression algorithm.
@@ -12,7 +9,7 @@ import java.util.Map;
 public class LZW implements CompressionAlgorithm {
 
     @Override
-    public void compress(String filePath) {
+    public void compress(String filePath) throws IOException {
         File compressedFile = new File(getCompressedPath(filePath));
 
         // Initialize dictionary with all possible byte values.
@@ -27,8 +24,6 @@ public class LZW implements CompressionAlgorithm {
         byte[] inputBytes;
         try (InputStream inputStream = Files.newInputStream(Paths.get(filePath))) {
             inputBytes = inputStream.readAllBytes();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
 
         // Compress the input data.
@@ -56,16 +51,11 @@ public class LZW implements CompressionAlgorithm {
         // Write compressed data to output file.
         try (ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(compressedFile))) {
             outputStream.writeObject(outputBytes);
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
-
     }
 
     @Override
-    public void decompress(String filePath) {
+    public void decompress(String filePath) throws IOException {
         File inputFile = new File(filePath);
         // file extension should be changed if the original file is not txt file
         File decompressedFile = new File(getDecompressedPath(filePath));
@@ -79,40 +69,29 @@ public class LZW implements CompressionAlgorithm {
         }
 
         // Read input file into a byte array.
-        List<Integer> inputBytes = new ArrayList<>();
+        List<Integer> inputBytes;
         try (ObjectInputStream inputStream = new ObjectInputStream(new FileInputStream(inputFile))) {
             inputBytes = (ArrayList<Integer>) inputStream.readObject();
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
+
         // Decompress the input data.
         ByteArrayOutputStream decompressedData = new ByteArrayOutputStream();
         int currentCode = inputBytes.get(0);
-        byte[] currentByte = dictionary.get(currentCode).getBytes();
-        try {
-            decompressedData.write(currentByte);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        byte[] currentByte = dictionary.get(currentCode).bytes();
+        decompressedData.write(currentByte);
         for (int i = 1; i < inputBytes.size(); i++) {
             int nextCode = inputBytes.get(i);
             byte[] nextByte;
             if (dictionary.containsKey(nextCode)) {
-                nextByte = dictionary.get(nextCode).getBytes();
+                nextByte = dictionary.get(nextCode).bytes();
             } else {
                 nextByte = new byte[currentByte.length + 1];
                 System.arraycopy(currentByte, 0, nextByte, 0, currentByte.length);
                 nextByte[currentByte.length] = currentByte[0];
             }
-            try {
-                decompressedData.write(nextByte);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            decompressedData.write(nextByte);
             byte[] addedByte = new byte[currentByte.length + 1];
             System.arraycopy(currentByte, 0, addedByte, 0, currentByte.length);
             addedByte[currentByte.length] = nextByte[0];
@@ -124,8 +103,6 @@ public class LZW implements CompressionAlgorithm {
         // Write decompressed data to output file.
         try (OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(decompressedFile))) {
             outputStream.write(decompressedData.toByteArray());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 
@@ -136,13 +113,29 @@ public class LZW implements CompressionAlgorithm {
             newFilePath = newFilePath + "_decompressed";
         return newFilePath + newExtension;
     }
+
     public String getCompressedPath(String path) {
         return path + ".lzw";
     }
 
     public String getDecompressedPath(String path) {
         String originalFilePath = path.substring(0, path.length() - 4);
-        String decompressedPath = changeExtension(originalFilePath, originalFilePath.substring(originalFilePath.lastIndexOf('.'), originalFilePath.length()), true);
-        return decompressedPath;
+        return changeExtension(originalFilePath, originalFilePath.substring(originalFilePath.lastIndexOf('.')), true);
     }
+
+    private record ByteArrayWrapper(byte[] bytes) {
+
+        @Override
+            public int hashCode() {
+                return Arrays.hashCode(bytes);
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (obj instanceof ByteArrayWrapper other) {
+                    return Arrays.equals(bytes, other.bytes);
+                }
+                return false;
+            }
+        }
 }

@@ -9,11 +9,12 @@ import java.security.NoSuchAlgorithmException;
  * Main driver code (used for testing).
  */
 public class Main {
+    private static final String FILE_PATH = "lorem.txt"; // File to be tested
+
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
-        String filePath = "";
-        compressionAlgorithmMetrics(new Huffman(), filePath, "Huffman Algorithm");
-        compressionAlgorithmMetrics(new LZW(), filePath, "LZW Algorithm");
-        compressionAlgorithmMetrics(new ArithmeticCoding(), filePath, "Arithmetic Algorithm");
+        compressionAlgorithmMetrics(new Huffman(), FILE_PATH, "Huffman Algorithm");
+        compressionAlgorithmMetrics(new LZW(), FILE_PATH, "LZW Algorithm");
+        compressionAlgorithmMetrics(new ArithmeticCoding(), FILE_PATH, "Arithmetic Algorithm");
     }
 
     private static boolean compareFiles(String file1, String file2) throws IOException, NoSuchAlgorithmException {
@@ -51,7 +52,8 @@ public class Main {
     }
 
     private static void compressionAlgorithmMetrics
-            (CompressionAlgorithm compressionAlgorithm, String path, String algorithmName) throws IOException, NoSuchAlgorithmException {
+            (CompressionAlgorithm compressionAlgorithm, String path, String algorithmName)
+            throws IOException, NoSuchAlgorithmException {
 
         String compressionPath = compressionAlgorithm.getCompressedPath(path);
         String decompressionPath = compressionAlgorithm.getDecompressedPath(compressionPath);
@@ -60,7 +62,7 @@ public class Main {
         getCompressionRate(path, compressionPath);
         decompress(compressionAlgorithm, compressionPath, "Decompression - " + algorithmName);
 
-        if(compareFiles(path, decompressionPath))
+        if (compareFiles(path, decompressionPath))
             System.out.println("Hash Digest are equal in " + algorithmName);
         else
             System.out.println("Hash Digest NOT equal in " + algorithmName);

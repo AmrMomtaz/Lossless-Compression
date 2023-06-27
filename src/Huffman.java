@@ -22,18 +22,19 @@ public class Huffman implements CompressionAlgorithm{
     public void compress(String path) {
         compress(path, 1);
     }
+
     public String getCompressedPath(String path) {
         return getCompressedPath(path, 1);
     }
+
     public String getCompressedPath(String inputPath, int n){
         inputPath = inputPath.replace("\\", "/");
         String newPath = "";
         String[] pathComponents = inputPath.split("/");
         String inputFileName = pathComponents[pathComponents.length-1];
         String outputFileName = String.valueOf(n) + "." + inputFileName + ".hc";
-        for(int i=0; i<pathComponents.length-1; i++){
+        for(int i=0; i<pathComponents.length-1; i++)
             newPath += pathComponents[i] + "/";
-        }
         newPath += outputFileName;
         return newPath;
     }
@@ -43,9 +44,8 @@ public class Huffman implements CompressionAlgorithm{
         String[] pathComponents = inputPath.split("/");
         String inputFileName = pathComponents[pathComponents.length-1];
         String outputFileName = "extracted." + inputFileName.substring(0, inputFileName.length()-3);
-        for(int i=0; i<pathComponents.length-1; i++){
+        for(int i=0; i<pathComponents.length-1; i++)
             newPath += pathComponents[i] + "/";
-        }
         newPath += outputFileName;
         return newPath;
     }
@@ -70,9 +70,8 @@ public class Huffman implements CompressionAlgorithm{
                 StringBuilder unit = new StringBuilder();
                 unit.append((char)br);
                 int currSize;
-                for(currSize=0; currSize < n-1 && ((br = bis.read()) != -1); currSize++){
+                for(currSize=0; currSize < n-1 && ((br = bis.read()) != -1); currSize++)
                     unit.append((char) br);
-                }
 
                 numUnits[0]++;
                 if(sizeLast[0] > currSize) sizeLast[0] = currSize+1;
@@ -82,7 +81,7 @@ public class Huffman implements CompressionAlgorithm{
                 String unitString = unit.toString();
                 if(freqTable.containsKey(unitString)){
                     freqTable.put(unitString, freqTable.get(unitString)+1);
-                }else{
+                } else {
                     freqTable.put(unitString, 1);
                 }
             }
@@ -96,9 +95,8 @@ public class Huffman implements CompressionAlgorithm{
     private Node[] generateNodes(HashMap<String, Integer> freqTable){
         Node[] nodes = new Node[freqTable.size()];
         int index = 0;
-        for(String unit : freqTable.keySet()){
+        for(String unit : freqTable.keySet())
             nodes[index++] = new Node(unit, freqTable.get(unit), null, null);
-        }
         return nodes;
     }
 
@@ -124,9 +122,7 @@ public class Huffman implements CompressionAlgorithm{
 
     // traverse inorder to generate the code
     private void generateCode(HashMap<String, String> codes, Node node, String code){
-        if(node == null) {
-            return;
-        }
+        if(node == null) return;
         generateCode(codes, node.left,code + "0");
         if(node.unit.length() != 0) codes.put(node.unit, code);
         generateCode(codes, node.right, code + "1");
@@ -149,7 +145,7 @@ public class Huffman implements CompressionAlgorithm{
             if(nodeUnit.length() == 0){
                 tree.append('0');
 
-            }else{
+            } else {
                 //leaf node
                 // write the size
                 // then write the content
@@ -163,7 +159,6 @@ public class Huffman implements CompressionAlgorithm{
             if(node.right != null) nodes.add(node.right);
         }
         tree.append('#');
-        //
         return tree.toString();
     }
 
@@ -175,7 +170,7 @@ public class Huffman implements CompressionAlgorithm{
         try(BufferedInputStream bis = new BufferedInputStream(new FileInputStream(path))) {
             try(BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(getCompressedPath(path, n)))) {
 
-                //deal with writing the tree
+                // deal with writing the tree
                 // write the meta data
                 // n - number of units - size of last byte
                 //
@@ -193,9 +188,8 @@ public class Huffman implements CompressionAlgorithm{
                     StringBuilder unit = new StringBuilder();
                     // find unit
                     unit.append((char)br);
-                    while (counter++ < n-1 && (br = bis.read()) != -1) {
+                    while (counter++ < n-1 && (br = bis.read()) != -1)
                         unit.append((char) br);
-                    }
                     // create bitset and store its value in it
                     String code = codes.get(unit.toString());
                     int codePtr = 0;
@@ -216,10 +210,7 @@ public class Huffman implements CompressionAlgorithm{
                     }
                     // then convert to byte array and write in file
                 }
-                if(bytePtr != 0) {
-                    bos.write(encodeToByte(bs));
-
-                }
+                if(bytePtr != 0) bos.write(encodeToByte(bs));
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -227,6 +218,7 @@ public class Huffman implements CompressionAlgorithm{
         // // every time there's a hit we'll write to the file
         // convert each n bytes into their code and write in compressed file : d-c (A lot of work)
     }
+
     private byte encodeToByte(int[] bits) {
         byte result = 0;
         int byteValue = 0;
@@ -240,7 +232,9 @@ public class Huffman implements CompressionAlgorithm{
         }
         return result;
     }
+
     ///////////////////////////////////  DECOMPRESSION //////////////////////////////////////////////////////////
+
     private void insertNode(Queue<Node> q, String unit){
         Node node = new Node(unit, 0, null, null);
         if(decompressRoot == null){
@@ -257,21 +251,15 @@ public class Huffman implements CompressionAlgorithm{
 
     }
     private void generateCodeReversed(HashMap<String,String> codes, Node node, String code){
-        if(node == null) {
-            return;
-        }
+        if(node == null) return;
         generateCodeReversed(codes, node.left,code + "0");
         if(node.unit.length() != 0) codes.put(code, node.unit);
         generateCodeReversed(codes, node.right, code + "1");
     }
     @Override
     public void decompress(String path){
-//        long start = System.nanoTime();
-//        System.out.println("Decompressing...");
         StringBuilder numHolder = new StringBuilder();
-        int n=0;
-        int numUnits=0;
-        int sizeLast=0;
+        int n, numUnits, sizeLast;
         // read n till -
         // read number till -
         // read remaining number till \n
@@ -353,8 +341,5 @@ public class Huffman implements CompressionAlgorithm{
         }catch(Exception e){
             e.printStackTrace();
         }
-//        System.out.println("Finished Decompressing!");
-//        long finish = System.nanoTime();
-//        System.out.println("Time Taken : " + (finish - start) * ((float)1/(float)1000000000) + " Seconds");
     }
 }
