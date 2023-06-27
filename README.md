@@ -158,3 +158,50 @@ message.
 * **FrequencyTable**: Represents the probabilities' table which holds the cumulative probability and the occurrences of each character. It contains functions which get the occurrences and the high & low values for each symbol.
 * **BitOutputStream**: Used to write bits using output stream.
 * **BitInputStream**: Used to read bits given InputStream.
+
+
+## Evaluations
+
+### Size Evaluation 
+Compression ratios for the three algorithms:
+
+| **File Size** | **Huffman** | **LZW** | **Arithmetic** |
+|-----------|---------|-----|------------|
+| 10 KB (Lorem Ipsum) | 1.8841 | 0.43083 | 1.6295 |
+| 5 MB (same character) | 7.9846 | 66.812 | 341.19 |
+| 250 MB (Lorem Ipsum) | 1.9294 | 11.829 | 1.9484 |
+| 500 MB (Lorem Ipsum) | 1.9153 | 16.403 | 1.9371 |
+
+### Time Evaluation:
+
+*  10KB File (Lorem Ipsum):
+
+| **Algorithm** | **Compression Time** | **Decompression Time** | **Compression Ratio** |
+|-----------|-----------------|--------------------|-------------------|
+| **Huffman** | 42 ms | 31 ms | 1.8841 |
+| **LZW** | 46 ms | 63 ms | 0.43083 |
+| **Arithmetic** | 15 ms | 31 ms | 1.6295 |
+
+*  5MB File of the same character:
+
+| **Algorithm** | **Compression Time** | **Decompression Time** | **Compression Ratio** |
+|-----------|-----------------|--------------------|-------------------|
+| **Huffman** | 717 ms | 360 ms | 7.9846 |
+| **LZW** | 2,134 ms | 93 ms | 66.812 |
+| **Arithmetic** | 223 ms | 234 ms | 341.19 |
+
+*  250MB File (Lorem Ipsum):
+
+| **Algorithm** | **Compression Time** | **Decompression Time** | **Compression Ratio** |
+|-----------|-----------------|--------------------|-------------------|
+| **Huffman** | 37,101 ms | 39,854 ms | 1.9294 |
+| **LZW** | 88,150 ms | 23,640 ms | 11.829 |
+| **Arithmetic** | 20,140 ms | 23,321 ms | 1.9484 |
+
+*  500MB File (Lorem Ipsum):
+
+| **Algorithm** | **Compression Time** | **Decompression Time** | **Compression Ratio** |
+|-----------|-----------------|--------------------|-------------------|
+| **Huffman** | 74,324 ms | 76,663 ms | 1.9153 |
+| **LZW** | 189,720 ms | 35,893 ms | 16.403 |
+| **Arithmetic** | 38,627 ms | 45,745 ms | 1.9371 |
