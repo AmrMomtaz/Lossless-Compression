@@ -2,7 +2,7 @@
 
 This project is part of **CSE471: Multimidea And Information Theory** which aims at implmenation and compare different lossless compression (Huffman, LZW, Arithmetic).
 
-To run the algorithms, go to the main class and enter the path of the file to be tested.
+To run the algorithms, go to the main class and insert the path of the file to be tested.
 
 ## Huffman Algorithm
 
